@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "movmf_eyz"
+version = "0.0.1"
+authors = [
+  { name="Libby Zhang", email="eyz@stanford.edu" },
+]
+description = "A simple library to fit mixture of von Mises-Fisher distributions using JAX"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ezhang94/movmf/"
+"Bug Tracker" = "https://github.com/ezhang94/movmf//issues"
