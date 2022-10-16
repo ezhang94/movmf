@@ -1,0 +1,1 @@
+from .mixture_model import GaussianMixtureModel
