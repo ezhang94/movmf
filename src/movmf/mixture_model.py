@@ -18,7 +18,7 @@ class Parameter:
     (a JAX PyTree) with a flag `is_frozen` (bool) to specify whether or not
     the parameter should be updated during model learning, as well as a `bijector`
     (tensorflow_probability.bijectors.Bijector) to map the parameter to/from an
-    unconstrained space. From earlier versions of probml/ssm_jax code
+    unconstrained space. Borrowed from earlier versions of probml/ssm_jax code
     """
 
     def __init__(self, value, is_frozen=False, bijector=None):
@@ -184,7 +184,7 @@ class FiniteMixtureModel(ABC):
     # --------------
     # EM algorithm
     @abstractmethod
-    def _m_step_mixture(self, observations, expected_assignments):
+    def _m_step_component(self, observations, expected_assignments):
         """Weighted posterior parameters of mixture distribution."""
         raise NotImplementedError
 
@@ -197,7 +197,7 @@ class FiniteMixtureModel(ABC):
             observations[n,d]:
         """
         self._mixing_probs.value = jnp.mean(expected_assignments, axis=0)
-        self._m_step_mixture(observations, expected_assignments)
+        self._m_step_component(observations, expected_assignments)
         return
 
     def e_step(self, observations):
@@ -256,6 +256,7 @@ PSDToRealBijector = tfb.Chain(
     ]
 )
 
+@register_pytree_node_class
 class GaussianMixtureModel(FiniteMixtureModel):
     """Finite mixture model with Gaussian component distributions."""
 
@@ -293,7 +294,7 @@ class GaussianMixtureModel(FiniteMixtureModel):
         cov = self._component_covariances.value[mixture]
         return tfd.MultivariateNormalFullCovariance(mean, cov)
     
-    def _m_step_mixture(self, observations, expected_assignments):
+    def _m_step_component(self, observations, expected_assignments):
         """Update model with weighted posterior parameters.
         
         Params
