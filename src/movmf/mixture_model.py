@@ -98,7 +98,7 @@ class FiniteMixtureModel(ABC):
         return tfd.Categorical(probs=alphas, name='mixing_distr')
 
     @abstractmethod
-    def component_distribution(self,m) -> tfd.Distribution:
+    def component_distribution(self, m) -> tfd.Distribution:
         """Return the distribution of the m-th mixture component."""
         raise NotImplementedError
 
@@ -162,7 +162,7 @@ class FiniteMixtureModel(ABC):
         Params
             seed (jr.PRNGKey)
             sample_shape (tuple)
-            
+
         Returns
             assgns[...,]
             samples[...,d]
@@ -200,7 +200,7 @@ class FiniteMixtureModel(ABC):
         """Weighted posterior parameters of mixture distribution."""
         raise NotImplementedError
 
-    def m_step(self, expected_assignments, observations):
+    def m_step(self, observations, expected_assignments, ):
         """Calculate maximum likelihood estimate of mixture weights and
         component distribution parameters. Update parameters in-place.
 
@@ -253,7 +253,13 @@ class FiniteMixtureModel(ABC):
             return self.params, lp
  
         params, log_probs = lax.scan(em_step, self.params, jnp.arange(n_iters))
+        log_probs.block_until_ready()
         self.params = params
+        # params = self.params
+        # log_probs = []
+        # for i in range(n_iters):
+        #     params, lp = em_step(params, i)
+        #     log_probs.append([lp])
 
         return log_probs
 
@@ -325,11 +331,14 @@ class GaussianMixtureModel(FiniteMixtureModel):
         )
 
         # Calculate (normalized) weighted sufficient statistics
-        normd_x = jnp.einsum('...m, ...d -> ...md', normd_weights, observations)
-        normd_xxT = jnp.einsum('...m, ...d, ...e -> ...mde', normd_weights, observations, observations)
-        normd_scatter = jnp.einsum('...md, ...me -> ...mde', normd_x, normd_x)
+        normd_x = jnp.einsum('...m, ...d -> md', normd_weights, observations)
+        normd_xxT = jnp.einsum('...m, ...d, ...e -> mde', normd_weights, observations, observations)
+        normd_scatter = jnp.einsum('...md, ...me -> mde', normd_x, normd_x)
 
-        # Update parameters        
+        # Update parameters
+        # TODO Experience issues where after lax.scan, _component_covariances is still a tracer value
+        # but for some reason _component_means is not
         self._component_means.value = normd_x
-        self._component_covariances = normd_xxT - normd_scatter + jnp.eye(D) * 1e-4
+        self._component_covariances.value = normd_xxT - normd_scatter #+ jnp.eye(D) * 1e-4
+        
         return

@@ -22,3 +22,12 @@ def test_log_prob(seed=jr.PRNGKey(1510), n_mixtures=5, n_dims=3, n_samples=100):
     true_gmm, _, observations = generate_observations(seed, n_mixtures, n_dims, n_samples)
 
     assert jnp.isclose(-465.6154, true_gmm.log_prob(observations), atol=1e-3)
+
+def test_fit_em(seed=jr.PRNGKey(1609), n_mixtures=5, n_dims=2, n_samples=500):
+    seed_true, seed_test = jr.split(seed)
+    true_gmm, _, observations = generate_observations(seed_true, n_mixtures, n_dims, n_samples)
+
+    test_gmm = GaussianMixtureModel.initialize_random(seed_test, n_mixtures, n_dims)
+    lps = test_gmm.fit_em(observations, n_iters=10)
+
+    assert False
