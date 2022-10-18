@@ -30,4 +30,6 @@ def test_fit_em(seed=jr.PRNGKey(1609), n_mixtures=5, n_dims=2, n_samples=500):
     test_gmm = GaussianMixtureModel.initialize_random(seed_test, n_mixtures, n_dims)
     lps = test_gmm.fit_em(observations, n_iters=10)
 
-    assert False
+    # TODO Implement permutation function to find permutation which minimizes
+    # test_gmm means to true_gmm means.
+    assert lps[-1] > lps[0]
