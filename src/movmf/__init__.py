@@ -1,1 +1,1 @@
-from .mixture_model import GaussianMixtureModel
+from movmf.mixture_model import GaussianMixtureModel
