@@ -157,10 +157,15 @@ class FiniteMixtureModel(ABC):
         return jnp.sum(logsumexp(lps, axis=-1))
 
     def sample(self, seed, sample_shape=()):
-        """Draw samples from the model.
+        """Draw samples and assignments from the model
         
-        TODO What's an efficient way to sample such that we can also return
-        the true labels?
+        Params
+            seed (jr.PRNGKey)
+            sample_shape (tuple)
+            
+        Returns
+            assgns[...,]
+            samples[...,d]
         """
         seed_mix, seed_comp, seed_shuffle = jr.split(seed, 3)
 
@@ -168,18 +173,25 @@ class FiniteMixtureModel(ABC):
         D = self._component_means.value.shape[-1]
 
         # Draw samples from mixing distr and count number of draws for each mixture
-        assignments = self.mixing_distribution().sample(sample_shape, seed_mix)
-        counts = vmap(lambda m: jnp.sum(assignments==m))(jnp.arange(M))
+        # i.e. draw number of samples from a multinomial distribution
+        assgns = self.mixing_distribution().sample(sample_shape, seed_mix)
+        counts = vmap(lambda m: jnp.sum(assgns==m))(jnp.arange(M))
 
-        # Draw specified number of samples from each mixture
+        # Draw specified number of samples from each mixture sequentially
+        assignments = jnp.concatenate([
+            jnp.ones(n_samples, dtype=int) * m for m, n_samples in enumerate(counts)
+        ])
         samples = jnp.concatenate([
             self.component_distribution(m).sample((n_samples,), jr.fold_in(seed_comp, m))
             for m, n_samples in enumerate(counts)
         ])
 
         # Shuffle samples so that they are no longer grouped by mixture
-        shuffled_samples = jr.permutation(seed_shuffle, samples, axis=0)
-        return shuffled_samples.reshape(*sample_shape, D)
+        shuffled_indices = jr.permutation(seed_shuffle, len(samples))
+        shuffled_samples = samples[shuffled_indices]
+        shuffled_assignments = assignments[shuffled_indices]
+        return (shuffled_assignments.reshape(*sample_shape), 
+               shuffled_samples.reshape(*sample_shape, D))
 
     # --------------
     # EM algorithm

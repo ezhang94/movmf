@@ -15,16 +15,10 @@ def generate_observations(seed, n_mixtures, n_dims, n_samples=100):
     component_covs *= scales[:, None, None]
     
     true_gmm = GaussianMixtureModel(mixing_probs, component_means, component_covs)
-    samples = true_gmm.sample(seed_sample, (n_samples,))
-    return true_gmm, samples
+    true_assgns, samples = true_gmm.sample(seed_sample, (n_samples,))
+    return true_gmm, true_assgns, samples
 
 def test_log_prob(seed=jr.PRNGKey(1510), n_mixtures=5, n_dims=3, n_samples=100):
-    true_gmm, observations = generate_observations(seed, n_mixtures, n_dims, n_samples)
+    true_gmm, _, observations = generate_observations(seed, n_mixtures, n_dims, n_samples)
 
-    # Create a dummy_gmm. This should be a poorer fit to obs than true_gmm
-    dummy_probs = jnp.concatenate([jnp.array([0.5]), 0.5/(n_mixtures-1)*jnp.ones(n_mixtures-1)])
-    dummy_means = jnp.zeros((n_mixtures,n_dims))
-    dummy_covs = jnp.tile(jnp.eye(n_dims), (n_mixtures, 1, 1))
-    dummy_gmm = GaussianMixtureModel(dummy_probs, dummy_means, dummy_covs)
-
-    assert true_gmm.log_prob(observations) > dummy_gmm.log_prob(observations)
+    assert jnp.isclose(-465.6154, true_gmm.log_prob(observations), atol=1e-3)
