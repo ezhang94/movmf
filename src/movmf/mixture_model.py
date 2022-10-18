@@ -29,7 +29,7 @@ class Parameter:
     def __repr__(self):
         return f"Parameter(value={self.value}, " \
                f"is_frozen={self.is_frozen}, " \
-               f"bijector={self.bijector})"
+               f"bijector={self.bijector}"
 
     @property
     def unconstrained_value(self):
@@ -87,7 +87,7 @@ class FiniteMixtureModel(ABC):
     @params.setter
     def params(self, values):
         items = sorted(self.__dict__.items())
-        params = [param for _, param in items if (isinstance(param, Parameter) and not param.is_frozen)]
+        params = [param for _, param in items if isinstance(param, Parameter) and not param.is_frozen]
         assert len(params) == len(values)
         for param, value in zip(params, values):
             param.value = value
@@ -152,8 +152,6 @@ class FiniteMixtureModel(ABC):
         )(jnp.arange(M))
         lps += jnp.log(alphas)
 
-        # Alternative: IF we do not add jnp.log(alphas) above, then we can write
-        #   return jnp.sum(logsumexp(lps, b=alphas, axis=-1))
         return jnp.sum(logsumexp(lps, axis=-1))
 
     def sample(self, seed, sample_shape=()):
@@ -170,7 +168,6 @@ class FiniteMixtureModel(ABC):
         seed_mix, seed_comp, seed_shuffle = jr.split(seed, 3)
 
         M = self._mixing_probs.value.shape[-1]
-        D = self._component_means.value.shape[-1]
 
         # Draw samples from mixing distr and count number of draws for each mixture
         # i.e. draw number of samples from a multinomial distribution
@@ -191,7 +188,7 @@ class FiniteMixtureModel(ABC):
         shuffled_samples = samples[shuffled_indices]
         shuffled_assignments = assignments[shuffled_indices]
         return (shuffled_assignments.reshape(*sample_shape), 
-               shuffled_samples.reshape(*sample_shape, D))
+               shuffled_samples.reshape(*sample_shape, -1))
 
     # --------------
     # EM algorithm
@@ -226,8 +223,7 @@ class FiniteMixtureModel(ABC):
         M = len(alphas)
 
         lps = vmap(lambda m:
-            self.component_distribution(m).log_prob(observations),
-            out_axes=-1,
+            self.component_distribution(m).log_prob(observations), out_axes=-1,
         )(jnp.arange(M))
         lps += jnp.log(alphas)
         
@@ -255,11 +251,6 @@ class FiniteMixtureModel(ABC):
         params, log_probs = lax.scan(em_step, self.params, jnp.arange(n_iters))
         log_probs.block_until_ready()
         self.params = params
-        # params = self.params
-        # log_probs = []
-        # for i in range(n_iters):
-        #     params, lp = em_step(params, i)
-        #     log_probs.append([lp])
 
         return log_probs
 
@@ -282,7 +273,7 @@ class GaussianMixtureModel(FiniteMixtureModel):
         super().__init__(mixing_probs)
 
         self._component_means = Parameter(means)
-        self._component_covariances = Parameter(covariances, PSDToRealBijector)
+        self._component_covariances = Parameter(covariances, bijector=PSDToRealBijector)
 
     @classmethod
     def initialize_random(cls, seed, n_mixtures, component_dim):
@@ -336,9 +327,7 @@ class GaussianMixtureModel(FiniteMixtureModel):
         normd_scatter = jnp.einsum('...md, ...me -> mde', normd_x, normd_x)
 
         # Update parameters
-        # TODO Experience issues where after lax.scan, _component_covariances is still a tracer value
-        # but for some reason _component_means is not
         self._component_means.value = normd_x
-        self._component_covariances.value = normd_xxT - normd_scatter #+ jnp.eye(D) * 1e-4
+        self._component_covariances.value = normd_xxT - normd_scatter + jnp.eye(D) * 1e-4
         
         return
